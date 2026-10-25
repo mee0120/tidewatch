@@ -44,12 +44,27 @@ Cron trigger (hourly)
 
 `contracts/src/PracticeLedger.sol` is an append-only, public ledger of attested decisions (built on Chainlink's `ReceiverTemplate`, so only the CRE Forwarder can write).
 
-### Simulate
+**Live on Sepolia:** PracticeLedger [`0xdf1006d23c541d2c3dfcb76a17f7be78530557d5`](https://sepolia.etherscan.io/address/0xdf1006d23c541d2c3dfcb76a17f7be78530557d5) — written by `cre workflow simulate --broadcast` through the Sepolia CRE forwarder. Read it with `node contracts/read.mjs 0xdf1006d23c541d2c3dfcb76a17f7be78530557d5`.
+
+### Cause and effect, on-chain: the first attested decision
+
+The very first decision the workflow committed to Sepolia was **`AVOID / WHALE_DRAIN`** — net stablecoin flow of **−$393M** out of exchanges. The evidence trail made the cause obvious: a single **$386M USDT transfer out of Binance 14** in one transaction. That is an exchange moving its own treasury between hot and cold wallets, not customers pulling buying power.
+
+Because the evidence was recorded, the mistake was diagnosable in minutes, and the rule was fixed: single transfers above **$100M** are now excluded from the flow and reported separately as `ignored … of treasury-size moves`. The original record stays on-chain unchanged — that is the point of an append-only ledger.
+
+### Deploy the ledger (Sepolia) and simulate
 
 ```bash
 # prerequisites: CRE CLI (cre login), Bun
 cd attest-workflow && bun install && cd ..
-cre workflow simulate attest-workflow --target staging-settings
+cre workflow simulate attest-workflow --target staging-settings            # dry run
+
+# optional: real on-chain write
+cd contracts && npm install && node compile.mjs
+node keygen.mjs                                       # throwaway key -> ../.env, fund it with Sepolia ETH
+node deploy.mjs 0x15fC6ae953E024d975e77382eEeC56A9101f9F88   # Sepolia CRE (mock) forwarder for simulation
+# put the address in attest-workflow/config.staging.json ("ledgerAddress", "writeReport": true), then:
+cd .. && cre workflow simulate attest-workflow --target staging-settings --broadcast
 ```
 
 The simulation fetches live candles, reads real mainnet whale transfers, prints every check, and (with `"writeReport": true` and a deployed ledger) writes the signed report to Sepolia (`--broadcast`).
@@ -72,7 +87,7 @@ The dashboard shows equity, every practice trade (click a row to see the entry c
 - This is **practice trading** — no real orders are placed anywhere.
 - Replay over the last 12 months of ETH (8,750 hourly steps, ETH fell from ~$3,900 to ~$2,300): **33 practice trades, 42.4% win rate, profit factor 1.19, avg +0.13R, +1.5% on equity** with 1% risk per trade. Modest on purpose: the trend filter is what keeps a dip-buyer from bleeding in a downtrend. The point of the project is not a magic edge but **decisions that can be audited**: every trade can be traced to the exact evidence and rule that triggered it, and re-derived by anyone.
 - Replay mode has no historical whale data (scanning a year of logs is expensive), and says so in every replayed decision ("no on-chain data").
-- Exchange wallet list = public Etherscan labels; transfers between two exchanges are ignored.
+- Exchange wallet list = public Etherscan labels; transfers between two listed exchange wallets are ignored, and single transfers above $100M are treated as treasury moves and excluded.
 
 ## Layout
 

@@ -6,7 +6,7 @@
   "whaleWindowBlocks": 300,
   "whaleMinUsd": 500000,
   "ledgerChain": "ethereum-testnet-sepolia",
-  "ledgerAddress": "0x0000000000000000000000000000000000000000",
-  "gasLimit": "500000",
-  "writeReport": false
+  "ledgerAddress": "0xdf1006d23c541d2c3dfcb76a17f7be78530557d5",
+  "gasLimit": "1500000",
+  "writeReport": true
 }

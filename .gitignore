@@ -4,4 +4,3 @@ node_modules/
 agent/data/
 contracts/out/
 .cre_build_tmp.js
-*.log

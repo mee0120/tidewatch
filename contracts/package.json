@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.2",
-    "solc": "^0.8.24"
+    "solc": "^0.8.24",
+    "viem": "^2.34.0"
   }
 }

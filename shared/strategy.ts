@@ -14,6 +14,7 @@ export type WhaleEvidence = {
   toBlock: number
   stableInUsd: number // large stablecoin transfers INTO exchange hot wallets (fresh buying power)
   stableOutUsd: number // large stablecoin transfers OUT of exchange hot wallets (buying power leaving)
+  ignoredUsd?: number // single transfers too large to be customer flow (exchange treasury moves), excluded
   largest: WhaleTransfer[] // up to 5 largest, for the reasoning trail
 }
 
@@ -166,7 +167,9 @@ export function decide(ev: Evidence, p: Params = DEFAULT_PARAMS): Decision {
     checks.push({
       id: "whale",
       label: "Whales not draining exchanges",
-      value: `net stablecoin flow to exchanges ${net >= 0 ? "+" : "-"}${usd(Math.abs(net))} (in ${usd(ev.whale!.stableInUsd)} / out ${usd(ev.whale!.stableOutUsd)})`,
+      value:
+        `net stablecoin flow to exchanges ${net >= 0 ? "+" : "-"}${usd(Math.abs(net))} (in ${usd(ev.whale!.stableInUsd)} / out ${usd(ev.whale!.stableOutUsd)})` +
+        (ev.whale!.ignoredUsd ? `; ignored ${usd(ev.whale!.ignoredUsd)} of treasury-size moves` : ""),
       rule: `net > -${usd(p.whaleDrainUsd)}`,
       pass: net > -p.whaleDrainUsd,
     })

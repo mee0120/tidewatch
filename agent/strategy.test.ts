@@ -36,10 +36,12 @@ test("whale log parsing", () => {
     { address: usdt, topics: [T, addressTopic(user), addressTopic(binance)], data: amt(3_000_000), txHash: "0xa" },
     { address: usdt, topics: [T, addressTopic(binance), addressTopic(user)], data: amt(1_500_000), txHash: "0xb" },
     { address: usdt, topics: [T, addressTopic(binance), addressTopic(user)], data: amt(10_000), txHash: "0xc" },
+    { address: usdt, topics: [T, addressTopic(binance), addressTopic(user)], data: amt(386_000_000), txHash: "0xd" },
   ], 1_000_000, 1, 2)
   expect(w.stableInUsd).toBe(3_000_000)
   expect(w.stableOutUsd).toBe(1_500_000)
   expect(w.largest[0].exchange).toBe("Binance 14")
+  expect(w.ignoredUsd).toBe(386_000_000) // treasury-size move excluded from the flow
 })
 
 test("canonical json is key-order independent", () => {

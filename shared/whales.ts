@@ -25,9 +25,13 @@ export const topicToAddress = (topic: string) => "0x" + topic.toLowerCase().slic
 export type RawLog = { address: string; topics: string[]; data: string; txHash: string }
 
 // Turns raw Transfer logs into the whale evidence used by the strategy.
-export function summarizeWhaleLogs(logs: RawLog[], minUsd: number, fromBlock: number, toBlock: number) {
+// Transfers above maxUsd are almost always an exchange moving its own treasury between hot and
+// cold wallets (e.g. a single $386M USDT move out of Binance 14), not customers moving buying
+// power. They are reported separately and do not count toward the flow.
+export function summarizeWhaleLogs(logs: RawLog[], minUsd: number, fromBlock: number, toBlock: number, maxUsd = 100_000_000) {
   let stableInUsd = 0
   let stableOutUsd = 0
+  let ignoredUsd = 0
   const all: { token: string; dir: "in" | "out"; usd: number; exchange: string; tx: string }[] = []
   const seen = new Set<string>()
   for (const l of logs) {
@@ -43,6 +47,10 @@ export function summarizeWhaleLogs(logs: RawLog[], minUsd: number, fromBlock: nu
     if (exFrom && exTo) continue // exchange-internal shuffling, ignore
     const amount = Number(BigInt(l.data) / 10n ** BigInt(tok.decimals))
     if (amount < minUsd) continue
+    if (amount > maxUsd) {
+      ignoredUsd += amount
+      continue
+    }
     if (exTo) {
       stableInUsd += amount
       all.push({ token: tok.symbol, dir: "in", usd: amount, exchange: exTo, tx: l.txHash })
@@ -52,5 +60,5 @@ export function summarizeWhaleLogs(logs: RawLog[], minUsd: number, fromBlock: nu
     }
   }
   all.sort((a, b) => b.usd - a.usd || (a.tx < b.tx ? -1 : 1))
-  return { fromBlock, toBlock, stableInUsd, stableOutUsd, largest: all.slice(0, 5) }
+  return { fromBlock, toBlock, stableInUsd, stableOutUsd, ignoredUsd, largest: all.slice(0, 5) }
 }
