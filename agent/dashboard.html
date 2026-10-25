@@ -76,6 +76,7 @@ async function load() {
     .map(([k, v]) => `<div class="kpi"><small>${k}</small><b>${v}</b></div>`).join("")
 
   const last = trail[trail.length - 1]
+  window.__last = last
   if (!last) $("latest").innerHTML = `<h2>Latest decision</h2><p class="mute">No decisions yet.</p>`
   else {
     const d = last.decision
@@ -148,7 +149,8 @@ const tradeRow = (pred) => [...document.querySelectorAll("#trades tr.click")].fi
 const STEPS = [
   { txt: "Tidewatch is a practice-trading agent that buys ETH dips - but only when the evidence says it really is a dip, and only after checking what the whales are doing.", go: async () => { await setMode("live"); window.scrollTo({ top: 0 }) } },
   { txt: "Every hour it collects evidence: 168 hourly ETH candles from Coinbase, plus every USDT/USDC transfer over $500k into or out of exchange hot wallets on Ethereum mainnet.", go: async () => { await setMode("live"); focus($("latest"), "start") } },
-  { txt: "It runs five fixed checks - dip, RSI exhaustion, falling knife, downtrend, whale flows - and records each value, each rule, and the decision. Right now: no dip, so it waits.", go: async () => { await setMode("live"); focus(document.querySelector('#latest li[data-check="dip"]')) } },
+  { txt: () => "It runs five fixed checks - dip, RSI exhaustion, falling knife, downtrend, whale flows - and records each value, each rule, and the decision. Right now: " +
+      (window.__last ? `${window.__last.decision.signal} - ${window.__last.decision.summary}` : "waiting for the first decision."), go: async () => { await setMode("live"); focus(document.querySelector('#latest li[data-check="dip"]')) } },
   { txt: "The whale check reads real on-chain data: net stablecoin flow into exchanges over the last ~300 blocks. If buying power is leaving exchanges, the agent refuses to buy.", go: async () => { await setMode("live"); focus(document.querySelector('#latest li[data-check="whale"]')) } },
   { txt: "Replayed hour by hour over the last 12 months (8,750 steps) while ETH fell ~40%: 33 practice trades, 1% risk each, 1.5 ATR stop, 2R target. Profit factor 1.19, +1.5%.", go: async () => { await setMode("replay"); window.scrollTo({ top: 0 }); focus($("kpis"), "start") } },
   { txt: "Jan 20 - Feb 6: ETH crashed from ~$3,150 to ~$2,000. A naive dip-buyer would have bought all the way down. Tidewatch saw the dips - and rejected every one: 'this is a downtrend, not a dip'.", go: async () => {
@@ -170,8 +172,10 @@ async function show(i) {
   step = Math.max(0, Math.min(STEPS.length - 1, i))
   clearHl(); closeDetails()
   $("capStep").textContent = `${step + 1} / ${STEPS.length}`
-  $("capTxt").textContent = STEPS[step].txt
+  const txt = STEPS[step].txt
+  if (typeof txt === "string") $("capTxt").textContent = txt
   await STEPS[step].go()
+  if (typeof txt === "function") $("capTxt").textContent = txt()
 }
 if (new URLSearchParams(location.search).has("demo")) {
   document.body.classList.add("demo")

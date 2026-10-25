@@ -3,6 +3,8 @@
 **A practice-trading agent that buys dips only when the evidence says it is a dip — and checks what the whales are doing first.**
 Every decision leaves a repeatable reasoning trail, and a Chainlink CRE workflow independently re-derives the decision from the same public data and commits it on-chain.
 
+**Demo video (2.5 min):** https://youtu.be/hWPJ_TP-3ds
+
 Built for **BLI Legal Tech Hackathon 2** — RYO-CHAN *Autonomous Agents* bounty and Chainlink *Best workflow with CRE* bounty.
 
 ---
