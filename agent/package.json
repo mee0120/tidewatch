@@ -1,0 +1,13 @@
+{
+  "name": "tidewatch-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "live": "bun live.ts",
+    "replay": "bun replay.ts 365",
+    "serve": "bun server.ts",
+    "test": "bun test"
+  },
+  "dependencies": { "viem": "2.34.0" },
+  "devDependencies": { "@types/bun": "latest", "typescript": "5.9.3" }
+}

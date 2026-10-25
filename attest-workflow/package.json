@@ -1,0 +1,13 @@
+{
+  "name": "tidewatch-attest-workflow",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": { "typecheck": "tsc --noEmit" },
+  "license": "MIT",
+  "dependencies": {
+    "@chainlink/cre-sdk": "^1.23.0",
+    "viem": "2.34.0"
+  },
+  "devDependencies": { "typescript": "5.9.3" }
+}

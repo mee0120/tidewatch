@@ -1,0 +1,12 @@
+{
+  "schedule": "0 5 * * * *",
+  "asset": "ETH",
+  "candlesUrl": "https://api.exchange.coinbase.com/products/ETH-USD/candles?granularity=3600",
+  "mainnetChain": "ethereum-mainnet",
+  "whaleWindowBlocks": 300,
+  "whaleMinUsd": 500000,
+  "ledgerChain": "ethereum-testnet-sepolia",
+  "ledgerAddress": "0x0000000000000000000000000000000000000000",
+  "gasLimit": "500000",
+  "writeReport": false
+}

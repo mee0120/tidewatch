@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tidewatch</title>
+<style>
+:root{--bg:#0b0f14;--panel:#121821;--line:#1f2a36;--text:#e6edf3;--mute:#8b98a7;--buy:#2ecc8f;--wait:#c9a227;--avoid:#ff6b6b;--accent:#5aa9ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid var(--line)}
+h1{font-size:20px;margin:0;letter-spacing:.3px}h1 span{color:var(--mute);font-weight:400;font-size:14px;margin-left:10px}
+.tabs button{background:none;border:1px solid var(--line);color:var(--mute);padding:6px 14px;border-radius:999px;cursor:pointer;margin-left:6px}
+.tabs button.on{color:var(--text);border-color:var(--accent)}
+main{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}.kpi b{display:block;font-size:20px;margin-top:2px;font-variant-numeric:tabular-nums}.kpi small{color:var(--mute)}
+.grid{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;margin-top:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mute);margin:0 0 12px}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-weight:600;font-size:12px}
+.BUY,.OPEN{background:#103b2b;color:var(--buy)}.WAIT,.NONE,.HOLD{background:#3a3212;color:var(--wait)}.AVOID,.SKIP,.REJ{background:#431c1c;color:var(--avoid)}.CLOSE{background:#162a44;color:var(--accent)}
+.checks{list-style:none;padding:0;margin:10px 0 0}.checks li{display:grid;grid-template-columns:22px 1fr;gap:6px;padding:6px 0;border-top:1px solid var(--line)}
+.ok{color:var(--buy)}.ng{color:var(--avoid)}.mute{color:var(--mute)}.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break:break-all}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}th,td{text-align:left;padding:8px 6px;border-top:1px solid var(--line);vertical-align:top}th{color:var(--mute);font-weight:500;font-size:12px}
+tr.click{cursor:pointer}tr.click:hover{background:#16202b}.pos{color:var(--buy)}.neg{color:var(--avoid)}
+.detail td{background:#0f141b}.why{margin:4px 0}
+svg{width:100%;height:120px}
+a{color:var(--accent)}
+@media(max-width:860px){.kpis{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Tidewatch<span>practice dip-buyer that checks the whales first</span></h1>
+  <div class="tabs"><button data-m="live" class="on">Live</button><button data-m="replay">Replay</button></div>
+</header>
+<main>
+  <section class="kpis" id="kpis"></section>
+  <section class="grid">
+    <div class="card" id="latest"></div>
+    <div class="card"><h2>Equity (practice, start $10,000)</h2><svg id="curve" viewBox="0 0 400 120" preserveAspectRatio="none"></svg><div id="pos"></div></div>
+  </section>
+  <section class="card" style="margin-top:14px"><h2>Practice trades - click a row to see cause and effect</h2><table id="trades"></table></section>
+  <section class="card" style="margin-top:14px"><h2>Reasoning trail (newest first) <label class="mute" style="float:right;text-transform:none;letter-spacing:0;font-size:12px;cursor:pointer"><input type="checkbox" id="keyonly" checked> key events only</label></h2><table id="trail"></table></section>
+</main>
+<script>
+let mode = "live"
+const $ = (id) => document.getElementById(id)
+const f = (x, d = 2) => x == null ? "-" : Number(x).toLocaleString("en-US", { maximumFractionDigits: d })
+const t = (s) => new Date(s * 1000).toISOString().slice(0, 16).replace("T", " ") + "Z"
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c])
+const checks = (d) => `<ul class="checks">${d.checks.map((c) => `<li><span class="${c.pass ? "ok" : "ng"}">${c.pass ? "&#10003;" : "&#10007;"}</span><span>${esc(c.label)} <span class="mute">- ${esc(c.value)} (rule ${esc(c.rule)})</span></span></li>`).join("")}</ul>`
+
+async function load() {
+  const [sum, trail] = await Promise.all([fetch(`/api/summary?mode=${mode}`).then((r) => r.json()), fetch(`/api/trail?mode=${mode}`).then((r) => r.json())])
+  const s = sum.stats
+  $("kpis").innerHTML = [["Equity", "$" + f(s.equity)], ["Return", f(s.returnPct) + "%"], ["Trades", s.trades], ["Win rate", f(s.winRatePct, 1) + "%"], ["Profit factor", s.profitFactor ?? "-"], ["Avg R", f(s.avgR)]]
+    .map(([k, v]) => `<div class="kpi"><small>${k}</small><b>${v}</b></div>`).join("")
+
+  const last = trail[trail.length - 1]
+  if (!last) $("latest").innerHTML = `<h2>Latest decision</h2><p class="mute">No decisions yet.</p>`
+  else {
+    const d = last.decision, w = mode === "live" ? null : null
+    $("latest").innerHTML = `<h2>Latest decision - ${t(last.at)}</h2>
+      <div><span class="badge ${d.signal}">${d.signal}</span> <span class="badge ${last.action}">${last.action}</span> <span class="mute">${d.reasonCode}${d.confidence ? " - confidence " + d.confidence : ""}</span></div>
+      <p class="why">${esc(d.summary)}</p>${last.actionReason !== d.summary ? `<p class="why mute">${esc(last.actionReason)}</p>` : ""}${checks(d)}
+      <p class="mute" style="margin-top:10px">ETH ${f(d.metrics.price)} | 24h high ${f(d.metrics.high24)} | RSI ${d.metrics.rsi14} | ATR ${f(d.metrics.atr14)}</p>
+      ${last.evidenceHash ? `<p class="mono mute">evidence ${last.evidenceHash} - <a href="/api/evidence/${last.id}" target="_blank">raw evidence</a></p>` : ""}`
+  }
+
+  // equity curve
+  let eq = 10000; const pts = [eq]; for (const tr of sum.trades) { eq += tr.pnlUsd; pts.push(eq) }
+  const lo = Math.min(...pts), hi = Math.max(...pts), span = hi - lo || 1
+  $("curve").innerHTML = pts.length < 2 ? "" : `<polyline fill="none" stroke="#5aa9ff" stroke-width="2" points="${pts.map((v, i) => `${(i / (pts.length - 1)) * 400},${110 - ((v - lo) / span) * 100}`).join(" ")}"/>`
+  const p = sum.position
+  $("pos").innerHTML = p ? `<p><span class="badge OPEN">OPEN</span> ${f(p.qty, 4)} ETH @ ${f(p.entry)} - stop ${f(p.stop)} / target ${f(p.target)} - risking $${f(p.riskUsd)}</p>` : `<p class="mute">Flat - no open practice position.</p>`
+
+  const byId = Object.fromEntries(trail.map((e) => [e.id, e]))
+  $("trades").innerHTML = `<tr><th>Opened</th><th>Entry</th><th>Exit</th><th>P&L</th><th>R</th><th>Why it closed</th></tr>` +
+    sum.trades.slice().reverse().map((tr, i) => {
+      const en = byId[tr.entryDecisionId]
+      return `<tr class="click" onclick="tog('t${i}')"><td>${t(tr.openedAt)}</td><td>${f(tr.entry)}</td><td>${f(tr.exit)}</td><td class="${tr.pnlUsd >= 0 ? "pos" : "neg"}">${tr.pnlUsd >= 0 ? "+" : ""}${f(tr.pnlUsd)}</td><td>${tr.rMultiple}</td><td>${esc(tr.exitReason)}</td></tr>
+      <tr class="detail" id="t${i}" hidden><td colspan="6"><b>Cause</b> - entry decision ${tr.entryDecisionId}: ${en ? esc(en.decision.summary) + checks(en.decision) + `<p class="mute">${esc(en.actionReason)}</p>` : "-"}<b>Effect</b> - ${esc(tr.exitReason)}; held ${Math.round((tr.closedAt - tr.openedAt) / 3600)}h, ${tr.rMultiple}R</td></tr>`
+    }).join("")
+
+  const keyOnly = $("keyonly").checked
+  const shown = keyOnly ? trail.filter((e) => e.action !== "HOLD" && (e.action !== "NONE" || ["DOWNTREND", "FALLING_KNIFE", "WHALE_DRAIN"].includes(e.decision.reasonCode))) : trail
+  $("trail").innerHTML = `<tr><th>Time</th><th>Signal</th><th>Action</th><th>Reason</th></tr>` +
+    shown.slice(-150).reverse().map((e, i) => `<tr class="click" onclick="tog('d${i}')"><td>${t(e.at)}</td><td><span class="badge ${e.decision.signal}">${e.decision.signal}</span></td><td><span class="badge ${e.action === "NONE" && e.decision.reasonCode !== "NO_DIP" ? "REJ" : e.action}">${e.action === "NONE" && e.decision.reasonCode !== "NO_DIP" ? "REJECTED" : e.action}</span></td><td>${esc(e.actionReason)}</td></tr>
+      <tr class="detail" id="d${i}" hidden><td colspan="4">${esc(e.decision.summary)}${checks(e.decision)}${e.linkedEntryId ? `<p class="mute">linked to entry ${e.linkedEntryId}</p>` : ""}${e.evidenceHash ? `<p class="mono mute">evidence ${e.evidenceHash}</p>` : ""}</td></tr>`).join("")
+}
+function tog(id) { const el = $(id); el.hidden = !el.hidden }
+document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => { document.querySelectorAll(".tabs button").forEach((x) => x.classList.remove("on")); b.classList.add("on"); mode = b.dataset.m; load() })
+$("keyonly").onchange = load
+load(); setInterval(load, 60000)
+</script>
+</body>
+</html>
