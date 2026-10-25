@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tidewatch</title>
 <style>
-:root{--bg:#0b0f14;--panel:#121821;--line:#1f2a36;--text:#e6edf3;--mute:#8b98a7;--buy:#2ecc8f;--wait:#c9a227;--avoid:#ff6b6b;--accent:#5aa9ff}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
-header{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid var(--line)}
+:root{--bg:#0b0f14;--panel:#121821;--line:#1f2a36;--text:#e6edf3;--mute:#8b98a7;--buy:#2ecc8f;--wait:#c9a227;--avoid:#ff6b6b;--accent:#5aa9ff;--hl:#ffd166}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
 h1{font-size:20px;margin:0;letter-spacing:.3px}h1 span{color:var(--mute);font-weight:400;font-size:14px;margin-left:10px}
 .tabs button{background:none;border:1px solid var(--line);color:var(--mute);padding:6px 14px;border-radius:999px;cursor:pointer;margin-left:6px}
 .tabs button.on{color:var(--text);border-color:var(--accent)}
 main{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
+body.demo main{padding-bottom:180px}
 .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}.kpi b{display:block;font-size:20px;margin-top:2px;font-variant-numeric:tabular-nums}.kpi small{color:var(--mute)}
 .grid{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;margin-top:14px}
@@ -26,6 +27,14 @@ tr.click{cursor:pointer}tr.click:hover{background:#16202b}.pos{color:var(--buy)}
 .detail td{background:#0f141b}.why{margin:4px 0}
 svg{width:100%;height:120px}
 a{color:var(--accent)}
+.term{background:#05080b;border:1px solid var(--line);border-radius:8px;padding:10px 12px;max-height:300px;overflow:auto;white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#b8c4d0}
+.hl{outline:2px solid var(--hl);outline-offset:3px;border-radius:6px;transition:outline-color .3s}
+tr.hl td{background:#2a2410 !important}
+#caption{position:fixed;left:0;right:0;bottom:0;background:rgba(5,8,11,.96);border-top:2px solid var(--accent);padding:18px 28px 16px;display:none;z-index:10}
+body.demo #caption{display:block}
+#caption .step{color:var(--accent);font-size:12px;letter-spacing:1px;text-transform:uppercase}
+#caption .txt{font-size:21px;line-height:1.4;margin-top:4px;max-width:1150px}
+#caption .hint{position:absolute;right:20px;top:14px;color:#3d4a58;font-size:11px}
 @media(max-width:860px){.kpis{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -38,18 +47,27 @@ a{color:var(--accent)}
   <section class="kpis" id="kpis"></section>
   <section class="grid">
     <div class="card" id="latest"></div>
-    <div class="card"><h2>Equity (practice, start $10,000)</h2><svg id="curve" viewBox="0 0 400 120" preserveAspectRatio="none"></svg><div id="pos"></div></div>
+    <div class="card" id="equity"><h2>Equity (practice, start $10,000)</h2><svg id="curve" viewBox="0 0 400 120" preserveAspectRatio="none"></svg><div id="pos"></div></div>
   </section>
-  <section class="card" style="margin-top:14px"><h2>Practice trades - click a row to see cause and effect</h2><table id="trades"></table></section>
-  <section class="card" style="margin-top:14px"><h2>Reasoning trail (newest first) <label class="mute" style="float:right;text-transform:none;letter-spacing:0;font-size:12px;cursor:pointer"><input type="checkbox" id="keyonly" checked> key events only</label></h2><table id="trail"></table></section>
+  <section class="card" style="margin-top:14px" id="tradesCard"><h2>Practice trades - click a row to see cause and effect</h2><table id="trades"></table></section>
+  <section class="card" style="margin-top:14px" id="trailCard"><h2>Reasoning trail (newest first) <label class="mute" style="float:right;text-transform:none;letter-spacing:0;font-size:12px;cursor:pointer"><input type="checkbox" id="keyonly" checked> key events only</label></h2><table id="trail"></table></section>
+  <section class="card" style="margin-top:14px" id="creCard">
+    <h2>Chainlink CRE attestation - same strategy code, re-derived on a DON, committed on-chain</h2>
+    <div class="mute" style="margin-bottom:8px">Cron &rarr; HTTP capability (Coinbase candles, identical consensus) &rarr; EVM read on Ethereum mainnet (USDT/USDC Transfer logs to/from exchange wallets) &rarr; decide() &rarr; signed report &rarr; PracticeLedger on Sepolia</div>
+    <div id="creLog" class="term">no simulation log yet</div>
+    <h2 style="margin-top:16px">PracticeLedger on Sepolia <span id="ledgerAddr" class="mono"></span></h2>
+    <table id="ledger"></table>
+  </section>
 </main>
+<div id="caption"><div class="hint">&larr; / &rarr;</div><div class="step" id="capStep"></div><div class="txt" id="capTxt"></div></div>
 <script>
 let mode = "live"
 const $ = (id) => document.getElementById(id)
 const f = (x, d = 2) => x == null ? "-" : Number(x).toLocaleString("en-US", { maximumFractionDigits: d })
 const t = (s) => new Date(s * 1000).toISOString().slice(0, 16).replace("T", " ") + "Z"
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c])
-const checks = (d) => `<ul class="checks">${d.checks.map((c) => `<li><span class="${c.pass ? "ok" : "ng"}">${c.pass ? "&#10003;" : "&#10007;"}</span><span>${esc(c.label)} <span class="mute">- ${esc(c.value)} (rule ${esc(c.rule)})</span></span></li>`).join("")}</ul>`
+const checks = (d) => `<ul class="checks">${d.checks.map((c) => `<li data-check="${c.id}"><span class="${c.pass ? "ok" : "ng"}">${c.pass ? "&#10003;" : "&#10007;"}</span><span>${esc(c.label)} <span class="mute">- ${esc(c.value)} (rule ${esc(c.rule)})</span></span></li>`).join("")}</ul>`
+const isRejected = (e) => e.action === "NONE" && ["DOWNTREND", "FALLING_KNIFE", "WHALE_DRAIN"].includes(e.decision.reasonCode)
 
 async function load() {
   const [sum, trail] = await Promise.all([fetch(`/api/summary?mode=${mode}`).then((r) => r.json()), fetch(`/api/trail?mode=${mode}`).then((r) => r.json())])
@@ -60,15 +78,14 @@ async function load() {
   const last = trail[trail.length - 1]
   if (!last) $("latest").innerHTML = `<h2>Latest decision</h2><p class="mute">No decisions yet.</p>`
   else {
-    const d = last.decision, w = mode === "live" ? null : null
+    const d = last.decision
     $("latest").innerHTML = `<h2>Latest decision - ${t(last.at)}</h2>
       <div><span class="badge ${d.signal}">${d.signal}</span> <span class="badge ${last.action}">${last.action}</span> <span class="mute">${d.reasonCode}${d.confidence ? " - confidence " + d.confidence : ""}</span></div>
       <p class="why">${esc(d.summary)}</p>${last.actionReason !== d.summary ? `<p class="why mute">${esc(last.actionReason)}</p>` : ""}${checks(d)}
       <p class="mute" style="margin-top:10px">ETH ${f(d.metrics.price)} | 24h high ${f(d.metrics.high24)} | RSI ${d.metrics.rsi14} | ATR ${f(d.metrics.atr14)}</p>
-      ${last.evidenceHash ? `<p class="mono mute">evidence ${last.evidenceHash} - <a href="/api/evidence/${last.id}" target="_blank">raw evidence</a></p>` : ""}`
+      ${last.evidenceHash ? `<p class="mono mute" id="evhash">evidence ${last.evidenceHash} - <a href="/api/evidence/${last.id}" target="_blank">raw evidence</a></p>` : ""}`
   }
 
-  // equity curve
   let eq = 10000; const pts = [eq]; for (const tr of sum.trades) { eq += tr.pnlUsd; pts.push(eq) }
   const lo = Math.min(...pts), hi = Math.max(...pts), span = hi - lo || 1
   $("curve").innerHTML = pts.length < 2 ? "" : `<polyline fill="none" stroke="#5aa9ff" stroke-width="2" points="${pts.map((v, i) => `${(i / (pts.length - 1)) * 400},${110 - ((v - lo) / span) * 100}`).join(" ")}"/>`
@@ -79,20 +96,93 @@ async function load() {
   $("trades").innerHTML = `<tr><th>Opened</th><th>Entry</th><th>Exit</th><th>P&L</th><th>R</th><th>Why it closed</th></tr>` +
     sum.trades.slice().reverse().map((tr, i) => {
       const en = byId[tr.entryDecisionId]
-      return `<tr class="click" onclick="tog('t${i}')"><td>${t(tr.openedAt)}</td><td>${f(tr.entry)}</td><td>${f(tr.exit)}</td><td class="${tr.pnlUsd >= 0 ? "pos" : "neg"}">${tr.pnlUsd >= 0 ? "+" : ""}${f(tr.pnlUsd)}</td><td>${tr.rMultiple}</td><td>${esc(tr.exitReason)}</td></tr>
+      return `<tr class="click" data-opened="${tr.openedAt}" data-pnl="${tr.pnlUsd}" onclick="tog('t${i}')"><td>${t(tr.openedAt)}</td><td>${f(tr.entry)}</td><td>${f(tr.exit)}</td><td class="${tr.pnlUsd >= 0 ? "pos" : "neg"}">${tr.pnlUsd >= 0 ? "+" : ""}${f(tr.pnlUsd)}</td><td>${tr.rMultiple}</td><td>${esc(tr.exitReason)}</td></tr>
       <tr class="detail" id="t${i}" hidden><td colspan="6"><b>Cause</b> - entry decision ${tr.entryDecisionId}: ${en ? esc(en.decision.summary) + checks(en.decision) + `<p class="mute">${esc(en.actionReason)}</p>` : "-"}<b>Effect</b> - ${esc(tr.exitReason)}; held ${Math.round((tr.closedAt - tr.openedAt) / 3600)}h, ${tr.rMultiple}R</td></tr>`
     }).join("")
 
-  const keyOnly = $("keyonly").checked
-  const shown = keyOnly ? trail.filter((e) => e.action !== "HOLD" && (e.action !== "NONE" || ["DOWNTREND", "FALLING_KNIFE", "WHALE_DRAIN"].includes(e.decision.reasonCode))) : trail
+  const shown = $("keyonly").checked ? trail.filter((e) => e.action !== "HOLD" && (e.action !== "NONE" || isRejected(e))) : trail
   $("trail").innerHTML = `<tr><th>Time</th><th>Signal</th><th>Action</th><th>Reason</th></tr>` +
-    shown.slice(-150).reverse().map((e, i) => `<tr class="click" onclick="tog('d${i}')"><td>${t(e.at)}</td><td><span class="badge ${e.decision.signal}">${e.decision.signal}</span></td><td><span class="badge ${e.action === "NONE" && e.decision.reasonCode !== "NO_DIP" ? "REJ" : e.action}">${e.action === "NONE" && e.decision.reasonCode !== "NO_DIP" ? "REJECTED" : e.action}</span></td><td>${esc(e.actionReason)}</td></tr>
-      <tr class="detail" id="d${i}" hidden><td colspan="4">${esc(e.decision.summary)}${checks(e.decision)}${e.linkedEntryId ? `<p class="mute">linked to entry ${e.linkedEntryId}</p>` : ""}${e.evidenceHash ? `<p class="mono mute">evidence ${e.evidenceHash}</p>` : ""}</td></tr>`).join("")
+    shown.slice(-400).reverse().map((e, i) => {
+      const rej = e.action === "NONE" && e.decision.reasonCode !== "NO_DIP"
+      return `<tr class="click" data-at="${e.at}" data-action="${rej ? "REJECTED" : e.action}" onclick="tog('d${i}')"><td>${t(e.at)}</td><td><span class="badge ${e.decision.signal}">${e.decision.signal}</span></td><td><span class="badge ${rej ? "REJ" : e.action}">${rej ? "REJECTED" : e.action}</span></td><td>${esc(e.actionReason)}</td></tr>
+      <tr class="detail" id="d${i}" hidden><td colspan="4">${esc(e.decision.summary)}${checks(e.decision)}${e.linkedEntryId ? `<p class="mute">linked to entry ${e.linkedEntryId}</p>` : ""}${e.evidenceHash ? `<p class="mono mute">evidence ${e.evidenceHash}</p>` : ""}</td></tr>`
+    }).join("")
 }
+
+async function loadCre() {
+  const [log, led] = await Promise.all([fetch("/api/cre-log").then((r) => r.json()), fetch("/api/ledger").then((r) => r.json())])
+  if (log.lines?.length) $("creLog").textContent = log.lines.join("\n")
+  if (led.address) $("ledgerAddr").innerHTML = `<a href="https://sepolia.etherscan.io/address/${led.address}" target="_blank">${led.address}</a>`
+  const SIG = ["WAIT", "BUY", "AVOID"]
+  $("ledger").innerHTML = `<tr><th>#</th><th>Evidence time</th><th>Signal</th><th>Reason</th><th>ETH</th><th>Net stablecoin flow</th><th>Evidence hash</th></tr>` +
+    (led.entries || []).map((e) => `<tr data-ledger="${e.id}"><td>${e.id}</td><td>${t(Number(e.asOf))}</td><td><span class="badge ${SIG[e.signal]}">${SIG[e.signal]}</span></td><td>${esc(e.reasonCode)}</td><td>${f(Number(e.priceCents) / 100)}</td><td class="${Number(e.netFlowUsd) >= 0 ? "pos" : "neg"}">${Number(e.netFlowUsd) >= 0 ? "+" : "-"}$${f(Math.abs(Number(e.netFlowUsd)) / 1e6, 1)}M</td><td class="mono">${e.evidenceHash.slice(0, 18)}...</td></tr>`).join("") +
+    (led.error ? `<tr><td colspan="7" class="mute">ledger unavailable: ${esc(led.error)}</td></tr>` : "")
+}
+
 function tog(id) { const el = $(id); el.hidden = !el.hidden }
-document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => { document.querySelectorAll(".tabs button").forEach((x) => x.classList.remove("on")); b.classList.add("on"); mode = b.dataset.m; load() })
+async function setMode(m) {
+  mode = m
+  document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x.dataset.m === m))
+  await load()
+}
+document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => setMode(b.dataset.m))
 $("keyonly").onchange = load
-load(); setInterval(load, 60000)
+
+// ---------------- demo mode: captions + scripted camera, advance with the arrow keys ----------------
+const day = (s) => Date.parse(s + "T00:00:00Z") / 1000
+const clearHl = () => document.querySelectorAll(".hl").forEach((e) => e.classList.remove("hl"))
+const closeDetails = () => document.querySelectorAll("tr.detail").forEach((e) => (e.hidden = true))
+// scroll so the element sits in the visible area between the sticky header and the caption bar
+function scrollToEl(el, block = "center") {
+  if (!el) return
+  const head = document.querySelector("header").offsetHeight
+  const cap = document.body.classList.contains("demo") ? $("caption").offsetHeight : 0
+  const r = el.getBoundingClientRect()
+  const avail = innerHeight - head - cap
+  let y = scrollY + r.top - head - 16
+  if (block === "center" && r.height < avail) y = scrollY + r.top - head - (avail - r.height) / 2
+  window.scrollTo({ top: Math.max(0, y), behavior: "smooth" })
+}
+const focus = (el, block = "center") => { if (!el) return; el.classList.add("hl"); scrollToEl(el, block) }
+const tradeRow = (pred) => [...document.querySelectorAll("#trades tr.click")].find(pred)
+const STEPS = [
+  { txt: "Tidewatch is a practice-trading agent that buys ETH dips - but only when the evidence says it really is a dip, and only after checking what the whales are doing.", go: async () => { await setMode("live"); window.scrollTo({ top: 0 }) } },
+  { txt: "Every hour it collects evidence: 168 hourly ETH candles from Coinbase, plus every USDT/USDC transfer over $500k into or out of exchange hot wallets on Ethereum mainnet.", go: async () => { await setMode("live"); focus($("latest"), "start") } },
+  { txt: "It runs five fixed checks - dip, RSI exhaustion, falling knife, downtrend, whale flows - and records each value, each rule, and the decision. Right now: no dip, so it waits.", go: async () => { await setMode("live"); focus(document.querySelector('#latest li[data-check="dip"]')) } },
+  { txt: "The whale check reads real on-chain data: net stablecoin flow into exchanges over the last ~300 blocks. If buying power is leaving exchanges, the agent refuses to buy.", go: async () => { await setMode("live"); focus(document.querySelector('#latest li[data-check="whale"]')) } },
+  { txt: "Replayed hour by hour over the last 12 months (8,750 steps) while ETH fell ~40%: 33 practice trades, 1% risk each, 1.5 ATR stop, 2R target. Profit factor 1.19, +1.5%.", go: async () => { await setMode("replay"); window.scrollTo({ top: 0 }); focus($("kpis"), "start") } },
+  { txt: "Jan 20 - Feb 6: ETH crashed from ~$3,150 to ~$2,000. A naive dip-buyer would have bought all the way down. Tidewatch saw the dips - and rejected every one: 'this is a downtrend, not a dip'.", go: async () => {
+      await setMode("replay"); const rows = [...document.querySelectorAll('#trail tr[data-action="REJECTED"]')].filter((r) => +r.dataset.at >= day("2026-01-20") && +r.dataset.at <= day("2026-02-07"))
+      rows.forEach((r) => r.classList.add("hl")); scrollToEl(rows[0], "start") } },
+  { txt: "Feb 9: the first dip that held its trend. BUY -> target hit, +2R. Every trade links the exit (effect) back to the exact entry checks (cause).", go: async () => {
+      await setMode("replay"); const r = tradeRow((x) => +x.dataset.opened >= day("2026-02-09") && +x.dataset.opened < day("2026-02-10")); if (r) { r.click(); focus(r, "start") } } },
+  { txt: "Losses are explained the same way: stop-loss hit -> a 6-hour cool-down blocks revenge trades. Those blocked signals are logged too, as SKIP.", go: async () => {
+      await setMode("replay"); const r = tradeRow((x) => +x.dataset.pnl < 0); if (r) { r.click(); focus(r, "start") }
+      document.querySelectorAll('#trail tr[data-action="SKIP"]').forEach((x) => x.classList.add("hl")) } },
+  { txt: "The same strategy code runs inside a Chainlink CRE workflow: HTTP capability for candles (DON consensus) + EVM read on Ethereum mainnet for whale logs -> decide() -> signed report.", go: async () => { await loadCre(); focus($("creLog"), "start") } },
+  { txt: "The report is written to PracticeLedger on Sepolia. Its very first record said AVOID: -$393M 'whale drain'. The stored evidence showed why - one $386M Binance treasury move, not customers.", go: async () => { await loadCre(); focus(document.querySelector('#ledger tr[data-ledger="0"]')) } },
+  { txt: "Rule fixed: single transfers over $100M are excluded as treasury moves. Record #1, same hour: WAIT, net -$6.8M. Both records stay on-chain, unchanged - cause and effect you can audit.", go: async () => { await loadCre(); focus(document.querySelector('#ledger tr[data-ledger="1"]')) } },
+  { txt: "Anyone can verify any decision: evidenceHash = keccak256(canonical JSON of evidence + params). verify.ts re-runs the open-source strategy and must get the same answer.", go: async () => { await setMode("live"); focus($("evhash") || $("latest")) } },
+  { txt: "Practice trading only - no real orders. Open source: github.com/mee0120/tidewatch. Built for BLI Legal Tech Hackathon 2: RYO-CHAN Autonomous Agents + Chainlink CRE.", go: async () => { await setMode("live"); window.scrollTo({ top: 0, behavior: "smooth" }) } },
+]
+let step = 0
+async function show(i) {
+  step = Math.max(0, Math.min(STEPS.length - 1, i))
+  clearHl(); closeDetails()
+  $("capStep").textContent = `${step + 1} / ${STEPS.length}`
+  $("capTxt").textContent = STEPS[step].txt
+  await STEPS[step].go()
+}
+if (new URLSearchParams(location.search).has("demo")) {
+  document.body.classList.add("demo")
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); show(step + 1) }
+    if (e.key === "ArrowLeft") { e.preventDefault(); show(step - 1) }
+  })
+  load().then(loadCre).then(() => show(0))
+} else {
+  load(); loadCre(); setInterval(load, 60000)
+}
 </script>
 </body>
 </html>
